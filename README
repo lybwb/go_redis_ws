@@ -1,0 +1,5 @@
+#### TEST
+
+redis端写
+> publish chl aaa
+
