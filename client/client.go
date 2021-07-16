@@ -20,8 +20,6 @@ func main() {
 		return
 	}
 
-	//go timeWriter(conn)
-
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
