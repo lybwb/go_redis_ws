@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -20,7 +21,13 @@ func main() {
 	fmt.Println("Starting application...")
 
 	port := os.Args[1]
-	TUid := os.Args[2]
+
+	uid, err := strconv.Atoi(os.Args[2])
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	TUid = uid
 	fmt.Println("port", port)
 	fmt.Println("test uid:", TUid)
 

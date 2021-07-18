@@ -125,10 +125,14 @@ func (h *WSHub) WebSocketRun() {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
+
+			fmt.Printf("register=%v, %v\n", client.uid, client.connID)
+
 			if _, ok := h.clientUidMap[client.uid]; !ok {
 				h.clientUidMap[client.uid] = make(map[int]*WSClient)
 			}
 			h.clientUidMap[client.uid][client.connID] = client
+
 		case client := <-h.unregister:
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
@@ -140,6 +144,8 @@ func (h *WSHub) WebSocketRun() {
 			}
 		case message := <-h.toMessage:
 			clientConnIDs, ok := h.clientUidMap[message.Uid]
+			fmt.Printf("clientConnIDs=%v\n", clientConnIDs)
+
 			if ok {
 				for _, client := range clientConnIDs {
 					if h.clients[client] {
@@ -162,8 +168,8 @@ func (h *WSHub) WSChannelRun() {
 
 	for {
 		for msg := range redisSubscript.Channel() {
-			fmt.Printf("channel=%s message=%s\n", msg.Channel, msg.Payload)
 			uid, err := strconv.Atoi(msg.Channel)
+			fmt.Printf("channel=%s, uid=%s,  message=%s\n", msg.Channel, uid, msg.Payload)
 			if err != nil {
 				fmt.Println(err)
 			} else {
@@ -233,6 +239,8 @@ func serveWebSocket(hub *WSHub, w http.ResponseWriter, r *http.Request, user Use
 	}
 
 	connID := GetUserClientConnID(hub, user.UserID)
+
+	fmt.Println("###......connID", connID, user.UserID)
 	// client := &Client{id: sha1, socket: conn, send: make(chan []byte)}
 	client := &WSClient{
 		hub:    hub,
@@ -256,8 +264,10 @@ func serveWebSocket(hub *WSHub, w http.ResponseWriter, r *http.Request, user Use
 }
 
 func getTestUser() User {
+
+	fmt.Println("TUid", TUid)
 	user := User{
-		UserID: 1,
+		UserID: TUid,
 	}
 	return user
 
@@ -331,6 +341,8 @@ func SendWSMessageToConn(
 		Uid:         uid,
 		MessageJSON: messageInByte,
 	}
+
+	fmt.Println("test channel", uid)
 
 	WebSocketHub.toMessage <- wsMessage
 
