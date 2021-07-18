@@ -4,13 +4,18 @@ import (
 	"flag"
 	"fmt"
 	"net/url"
+	"os"
 
 	"github.com/gorilla/websocket"
 )
 
-var addr = flag.String("addr", "localhost:12346", "http service address")
-
 func main() {
+
+	port := os.Args[1]
+	fmt.Println("port", port)
+
+	var addr = flag.String("addr", "localhost:"+port, "http service address")
+
 	u := url.URL{Scheme: "ws", Host: *addr, Path: "/ws"}
 	var dialer *websocket.Dialer
 

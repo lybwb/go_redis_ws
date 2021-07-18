@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
-	"github.com/ecopia-china/hdmap-platform/backend/commons"
+	"go_redis_ws/commons"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 )
 
 const (
@@ -116,7 +117,7 @@ func SetupWebSocketHub() *WSHub {
 }
 
 func WebSocketCheckOirignHandler(req *http.Request) bool {
-	return false
+	return true
 }
 
 func (h *WSHub) WebSocketRun() {
@@ -160,20 +161,26 @@ func (h *WSHub) WSChannelRun() {
 	redisSubscript := redisClient.PSubscribe("*")
 
 	for {
-
 		for msg := range redisSubscript.Channel() {
 			fmt.Printf("channel=%s message=%s\n", msg.Channel, msg.Payload)
-			jsonMessage, _ := json.Marshal(&Message{Sender: "hi", Content: msg.String()})
-			manager.broadcast <- jsonMessage
-		}
+			uid, err := strconv.Atoi(msg.Channel)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println("test channel", uid)
+				_, _, _, err := SendWSMessageToConn(NotifyUserMessage{}, uid, 0, 0, 0)
+				if err != nil {
+					fmt.Printf("serveWebSocket: SendWSMessageToConn fail")
+					// LogError("serveWebSocket: SendWSMessageToConn fail", zap.Error(err))
+				}
+			}
 
-	}
-}
-
-func (h *WSHub) send(message []byte, ignore *Client) {
-	for conn := range h.clients {
-		if conn != ignore {
-			conn.send <- message
+			// jsonMessage, _ := json.Marshal(&Message{Sender: "hi", Content: msg.String()})
+			// wsMessage := WSMessageConn{
+			// 	Uid:         msg.Channel,
+			// 	MessageJSON: messageInByte,
+			// }
+			// WebSocketHub.toMessage <- wsMessage
 		}
 	}
 }
@@ -235,13 +242,12 @@ func serveWebSocket(hub *WSHub, w http.ResponseWriter, r *http.Request, user Use
 		uid:    user.UserID,
 	}
 	client.hub.register <- client
-
-	// go client.write()
 	go client.writePump()
 
 	_, _, _, err = SendWSMessageToConn(NotifyUserMessage{}, user.UserID, 0, 0, 0)
 	if err != nil {
-		LogError("serveWebSocket: SendWSMessageToConn fail", zap.Error(err))
+		fmt.Printf("serveWebSocket: SendWSMessageToConn fail")
+		// LogError("serveWebSocket: SendWSMessageToConn fail", zap.Error(err))
 		return err
 	}
 
@@ -249,15 +255,108 @@ func serveWebSocket(hub *WSHub, w http.ResponseWriter, r *http.Request, user Use
 
 }
 
+func getTestUser() User {
+	user := User{
+		UserID: 1,
+	}
+	return user
+
+}
+
 func APIWSHandler(c *gin.Context) {
 
 	// user, err := isTokenAuthorized(accessToken)
+	user := getTestUser()
 
-	err = serveWebSocket(WebSocketHub, c.Writer, c.Request, user)
+	err := serveWebSocket(WebSocketHub, c.Writer, c.Request, user)
 	if err != nil {
-		LogError("ServeWebSocketHandler: call serveWebSocket fail", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, err.Error())
+		fmt.Printf("ServeWebSocketHandler: call serveWebSocket fail")
+		// c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
 }
+
+func GetUserClientConnID(hub *WSHub, uid int) int {
+	maxID := 0
+	for connID, _ := range hub.clientUidMap[uid] {
+		if connID > maxID {
+			maxID = connID
+		}
+	}
+
+	return maxID + 1
+}
+
+func SendWSMessageToConn(
+	message NotifyUserMessage, uid, unreadNoticePlus, unreadMessagePlus int, unhandledContentRequestPlus int,
+) (int, int, int, error) {
+
+	unreadNotice := 1
+	unreadMessage := 1
+	unhandledContentRequestCount := 1
+
+	// unreadNotice, unreadMessage, err := GetUnreadCountInNotifyType(uid)
+	// if err != nil {
+	// 	LogError("get unread count in notify type error", zap.Error(err))
+	// 	return 0, 0, 0, err
+	// }
+
+	// unhandledContentRequestCount, err := getUnhandledRequestCount(uid)
+	// if err != nil {
+	// 	LogError("get unhandled count in content_request error", zap.Error(err))
+	// 	return 0, 0, 0, err
+	// }
+
+	// unreadNotice += unreadNoticePlus
+	// unreadMessage += unreadMessagePlus
+	// unhandledContentRequestCount += unhandledContentRequestPlus
+
+	wsM := WSMessage{
+		Message:    message,
+		NewMessage: message.MessageID != "",
+	}
+	// wsM.UnreadNoticeCount = unreadNotice
+	// wsM.UnreadMessageCount = unreadMessage
+	// wsM.UnhandledContentRequestCount = &unhandledContentRequestCount
+
+	messageInByte, err := json.Marshal(wsM)
+	if err != nil {
+		fmt.Printf("message marshal error")
+		// LogError("message marshal error", zap.Error(err))
+		return 0, 0, 0, err
+	}
+
+	wsMessage := WSMessageConn{
+		Uid:         uid,
+		MessageJSON: messageInByte,
+	}
+
+	WebSocketHub.toMessage <- wsMessage
+
+	return unreadNotice, unreadMessage, unhandledContentRequestCount, nil
+}
+
+// func GenerateNotification(userMessage NotifyMessage, receiverUIDs []int) (int, error) {
+// 	unreadNoticePlus, unreadMessagePlus := 0, 0
+// 	unhandledContentRequestPlus := 0
+// 	tsPublish := commons.GetNowUTCTime()
+// 	for _, uid := range receiverUIDs {
+// 		userMesg := NotifyUserMessage{
+// 			MessageID:        userMessage.MessageID,
+// 			Message:          userMessage.Message,
+// 			Category:         userMessage.Category,
+// 			NotifyType:       userMessage.NotifyType,
+// 			SenderUID:        userMessage.CreatorUID,
+// 			TsMessagePublish: tsPublish,
+// 			Uid:              uid,
+// 		}
+// 		_, _, _, err := SendWSMessageToConn(userMesg, uid, unreadNoticePlus, unreadMessagePlus, unhandledContentRequestPlus)
+// 		if err != nil {
+// 			fmt.Printf("gene fail")
+// 			return 400, err
+// 		}
+// 	}
+//
+// 	return 200, nil
+// }
