@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,24 +11,14 @@ import (
 
 // WebSocketHub is websocket connection hub
 var WebSocketHub *WSHub
-var TUid int
 
 // WebSocketUpgrader is a global upgrader for each connectoin
 var WebSocketUpgrader websocket.Upgrader
 
 func main() {
-	fmt.Println("Starting application...")
 
 	port := os.Args[1]
-
-	uid, err := strconv.Atoi(os.Args[2])
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	TUid = uid
-	fmt.Println("port", port)
-	fmt.Println("test uid:", TUid)
+	fmt.Println("Starting application..port.", port)
 
 	// websocket
 	WebSocketHub = SetupWebSocketHub()

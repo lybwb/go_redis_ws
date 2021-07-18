@@ -263,11 +263,11 @@ func serveWebSocket(hub *WSHub, w http.ResponseWriter, r *http.Request, user Use
 
 }
 
-func getTestUser() User {
+func getTestUser(uid int) User {
 
-	fmt.Println("TUid", TUid)
+	fmt.Println("get user_uid", uid)
 	user := User{
-		UserID: TUid,
+		UserID: uid,
 	}
 	return user
 
@@ -275,10 +275,18 @@ func getTestUser() User {
 
 func APIWSHandler(c *gin.Context) {
 
-	// user, err := isTokenAuthorized(accessToken)
-	user := getTestUser()
+	x_uid := c.Request.Header.Get("x-uid")
+	fmt.Println("..debug....x_uid", x_uid)
 
-	err := serveWebSocket(WebSocketHub, c.Writer, c.Request, user)
+	uid, err := strconv.Atoi(x_uid)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// user, err := isTokenAuthorized(accessToken)
+	user := getTestUser(uid)
+
+	err = serveWebSocket(WebSocketHub, c.Writer, c.Request, user)
 	if err != nil {
 		fmt.Printf("ServeWebSocketHandler: call serveWebSocket fail")
 		// c.JSON(http.StatusInternalServerError, err.Error())
