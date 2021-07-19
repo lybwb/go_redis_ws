@@ -34,6 +34,7 @@ func main() {
 
 	// http.HandleFunc("/ws", APIWSHandler)
 	router.GET("/ws", APIWSHandler)
+	router.GET("/pub", APIWSPublishHandler)
 
 	// http.ListenAndServe(":12346", nil)
 	router.Run(":" + port)
