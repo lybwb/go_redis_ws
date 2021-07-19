@@ -133,7 +133,7 @@ func (h *WSHub) WebSocketRun() {
 			}
 		case message := <-h.toMessage:
 			clientConnIDs, ok := h.clientUidMap[message.Uid]
-			fmt.Printf("toMessage , clientConnIDs=%v\n", clientConnIDs)
+			fmt.Printf("channel=%s, clientConnIDs=%v\n", message.Uid, clientConnIDs)
 
 			if ok {
 				for _, client := range clientConnIDs {
