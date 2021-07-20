@@ -236,6 +236,8 @@ func serveWebSocket(hub *WSHub, w http.ResponseWriter, r *http.Request, user Use
 	}
 	client.hub.register <- client
 	go client.writePump()
+	PublishMessageToChannel(NotifyUserMessage{}, user.UserID, 0, 0, 0)
+
 	return nil
 
 }
